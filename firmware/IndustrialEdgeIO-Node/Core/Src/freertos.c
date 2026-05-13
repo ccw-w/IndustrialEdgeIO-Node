@@ -23,10 +23,11 @@
 #include "main.h"
 #include "task.h"
 
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "modbus.h"
+#include "usart.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -114,14 +115,31 @@ void MX_FREERTOS_Init(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
   /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  for (;;) {
-    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-    osDelay(500);
-  }
-  /* USER CODE END StartDefaultTask */
-}
+  Modbus_Register_Init();
 
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, Modbus_RX_Buffer,
+                               sizeof(Modbus_RX_Buffer));
+  __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+
+  for (;;) {
+    osDelay(5);
+
+    if (Modbus_RX_Length > 0) {
+      if (Modbus_Server() == 1)
+        Modbus_Register[REG_COMM_STATE] = 0;
+      else
+        Modbus_Register[REG_COMM_STATE] = 1;
+
+      memset(Modbus_RX_Buffer, 0, sizeof(Modbus_RX_Buffer));
+      Modbus_RX_Length = 0;
+
+      HAL_UARTEx_ReceiveToIdle_DMA(&huart2, Modbus_RX_Buffer,
+                                   sizeof(Modbus_RX_Buffer));
+      __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+    }
+  }
+}
+/* USER CODE END StartDefaultTask */
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
